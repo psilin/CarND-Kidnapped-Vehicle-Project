@@ -38,7 +38,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	num_particles = 1000;
+	num_particles = 50;
 
 	std::normal_distribution<double> dist_x(0, std[0]);
 	std::normal_distribution<double> dist_y(0, std[1]);
@@ -68,14 +68,14 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	std::normal_distribution<double> dist_theta(0, std_pos[2]);
 
 	if (::fabs(yaw_rate) < 0.00001) {
-		for (auto p : particles) {
+		for (auto & p : particles) {
 			p.x = p.x + velocity * delta_t * ::cos(p.theta) + dist_x(gGen);
 			p.y = p.y + velocity * delta_t * ::sin(p.theta) + dist_y(gGen);
 			p.theta = p.theta + dist_theta(gGen);
 		}
 	}
 	else {
-		for (auto p : particles) {
+		for (auto & p : particles) {
 			p.x = p.x + (velocity/yaw_rate) * 
 					(::sin(p.theta + yaw_rate * delta_t) - ::sin(p.theta)) + dist_x(gGen);
 			p.y = p.y + (velocity/yaw_rate) * 
@@ -92,11 +92,11 @@ void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkOb
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
-	for (auto obs : observations) {
+	for (auto & obs : observations) {
 		double min_dist = 2 * sensor_range;
 		int id_min = -1;
 		
-		for (auto p : predicted) {
+		for (const auto & p : predicted) {
 			double dist = distance(obs.x, obs.y, p.x, p.y);
 			if (dist < min_dist) {
 				min_dist = dist;
@@ -122,19 +122,18 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   http://planning.cs.uiuc.edu/node99.html
 	
 	// For each particle:
-	for (auto p : particles) {
+	for (auto & p : particles) {
 		// 1. Find all landmarks that are within of sensor reach
 		std::vector<LandmarkObs> predicted;
-		for (auto ml : map_landmarks.landmark_list) {
+		for (const auto & ml : map_landmarks.landmark_list) {
 			if (distance(p.x, p.y, ml.x_f, ml.y_f) <= sensor_range) {
 				predicted.emplace_back(LandmarkObs{ml.id_i, ml.x_f, ml.y_f});
 			}
 		}
-		std::cout << p.id << "  " << predicted.size() << std::endl;
 
 		// 2. Transform measurement observations from particle coordinate system to global coordinate system
 		std::vector<LandmarkObs> global_obs;
-		for (auto obs : observations) {
+		for (const auto & obs : observations) {
 			double g_obs_x = ::cos(p.theta) * obs.x - ::sin(p.theta) * obs.y + p.x;
 			double g_obs_y = ::sin(p.theta) * obs.x + ::cos(p.theta) * obs.y + p.y;
 			global_obs.emplace_back(LandmarkObs{obs.id, g_obs_x, g_obs_y});
@@ -146,12 +145,12 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		// 4. Compute new weight given all observations
 		p.weight = 1.;
 		
-		for (auto go : global_obs) {
+		for (const auto & go : global_obs) {
 			//find associated prediction
 			double pred_x = 0.;
 			double pred_y = 0.;
 			bool found = false;
-			for (auto p : predicted) {
+			for (const auto & p : predicted) {
 				if (p.id == go.id) {
 					pred_x = p.x;
 					pred_y = p.y;
@@ -182,7 +181,7 @@ void ParticleFilter::resample() {
 	auto ind = ind_dist(gGen);
 
 	std::vector<double> weights;
-	for (auto p : particles) weights.emplace_back(p.weight);
+	for (const auto & p : particles) weights.emplace_back(p.weight);
 
 	// Max weight and beta distribution
 	double max_weight = *std::max_element(weights.begin(), weights.end());
@@ -190,7 +189,7 @@ void ParticleFilter::resample() {
 
 	//resampling wheel
 	double beta = 0.;
-	for (auto p : particles) {
+	for (const auto & p : particles) {
 		beta += weight_dist(gGen);
 		while (beta > weights[ind]) {
 			beta -= weights[ind];
